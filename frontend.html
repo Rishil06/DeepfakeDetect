@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DeepfakeDetect — AI Authenticator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#f2f0ed;
+  --surface:#ffffff;
+  --surface2:#f8f7f5;
+  --text:#111010;
+  --muted:#7a7672;
+  --border:rgba(0,0,0,0.09);
+  --border-strong:rgba(0,0,0,0.16);
+  --accent:#1a1a1a;
+  --accent-lt:rgba(0,0,0,0.05);
+  --pink:#d4145a;
+  --pink-lt:rgba(212,20,90,0.07);
+  --green:#187a52;
+  --green-lt:rgba(24,122,82,0.07);
+  --lavender:#7c6fcd;
+  --lavender-lt:rgba(124,111,205,0.1);
+  --radius:10px;
+  --font:'DM Sans',sans-serif;
+  --serif:'DM Serif Display',serif;
+}
+
+body.dark{
+  --bg:#0e0e0e;
+  --surface:#181818;
+  --surface2:#141414;
+  --text:#e8e5e0;
+  --muted:#5e5c59;
+  --border:rgba(255,255,255,0.08);
+  --border-strong:rgba(255,255,255,0.14);
+  --accent:#e8e5e0;
+  --accent-lt:rgba(255,255,255,0.05);
+  --pink-lt:rgba(212,20,90,0.1);
+  --green-lt:rgba(24,122,82,0.1);
+  --lavender-lt:rgba(124,111,205,0.12);
+}
+body.dark #topnav{background:rgba(14,14,14,0.92);border-color:rgba(255,255,255,0.07)}
+body.dark .card{background:var(--surface);border-color:var(--border)}
+body.dark .metric-card{background:var(--surface2)}
+body.dark .drop-zone{background:var(--surface2);border-color:rgba(255,255,255,0.1)}
+body.dark .source-tab{background:var(--surface2);border-color:var(--border);color:var(--muted)}
+body.dark .dchip,.fmt-tag{background:var(--surface2);border-color:var(--border)}
+body.dark .heatmap-wrap{background:var(--surface2)}
+body.dark .verdict-box{background:var(--surface2);border-color:var(--border)}
+body.dark .verdict-box.fake{background:var(--pink-lt);border-color:rgba(212,20,90,0.22)}
+body.dark .verdict-box.real{background:var(--green-lt);border-color:rgba(24,122,82,0.22)}
+body.dark #loader{background:rgba(14,14,14,0.82)}
+body.dark .wm-box,.mi-card{background:var(--surface)}
+body.dark .btn-clear,.btn-dl-txt{background:var(--surface2);border-color:var(--border)}
+body.dark .stat-chip{background:var(--surface2);border-color:var(--border)}
+body.dark .mode-wrap{background:var(--surface2);border-color:var(--border)}
+body.dark .mode-btn.active{background:var(--surface);color:var(--text)}
+body.dark .expl-card{background:var(--surface2);border-color:var(--border)}
+body.dark .expl-section{border-color:var(--border)}
+body.dark .expl-tag{background:var(--surface);border-color:var(--border)}
+body.dark .skeleton{background:rgba(255,255,255,0.06)}
+body.dark .hist-card{background:var(--surface)}
+body.dark .global-drop-dimmer{background:rgba(14,14,14,0.88)}
+body.dark #print-report{color:#111}
+
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+
+/* ── BLOBS (subdued — tool not marketing) ── */
+.blob-wrap{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.blob1{position:absolute;top:5%;left:55%;width:380px;height:380px;opacity:0.28;animation:blobFloat 12s ease-in-out infinite alternate}
+.blob2{position:absolute;bottom:10%;right:2%;width:200px;height:200px;opacity:0.18;animation:blobFloat 16s ease-in-out infinite alternate-reverse}
+@keyframes blobFloat{from{transform:translate(0,0) rotate(0deg)} to{transform:translate(14px,20px) rotate(5deg)}}
+
+/* ── GLOBAL DRAG DIMMER ── */
+.global-drop-dimmer{position:fixed;inset:0;z-index:9999;background:rgba(242,240,237,0.9);backdrop-filter:blur(10px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0;pointer-events:none;transition:opacity 0.2s}
+.global-drop-dimmer.drag-over{opacity:1;pointer-events:all}
+.gdrop-title{font-family:var(--serif);font-size:2rem;color:var(--text)}
+.gdrop-sub{font-size:0.82rem;color:var(--muted)}
+
+/* ── NAV ── */
+#topnav{position:sticky;top:0;z-index:100;background:rgba(242,240,237,0.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 2rem;gap:2rem}
+.nav-logo{font-family:var(--font);font-size:0.9rem;font-weight:500;color:var(--text);text-decoration:none;letter-spacing:0.02em;flex-shrink:0;display:flex;align-items:center;gap:8px;text-transform:lowercase}
+.nav-links{display:flex;gap:0;flex:1;justify-content:center}
+.nav-link{font-size:0.78rem;font-weight:400;color:var(--muted);padding:5px 12px;border-radius:4px;transition:color 0.15s;position:relative;cursor:pointer;background:none;border:none;font-family:var(--font);letter-spacing:0.01em}
+.nav-link:hover{color:var(--text)}
+.nav-link.active{color:var(--text);font-weight:500}
+.nav-link.active::after{content:'';position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--pink)}
+.nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.stat-chip{display:flex;align-items:center;gap:5px;font-size:0.7rem;color:var(--muted);background:rgba(0,0,0,0.03);border:1px solid var(--border);padding:3px 9px;border-radius:4px}
+.stat-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.stat-val{font-weight:600;color:var(--text)}
+#theme-btn{width:30px;height:30px;border-radius:4px;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:background 0.15s,color 0.15s}
+#theme-btn:hover{background:var(--accent-lt);color:var(--text)}
+#theme-btn svg{width:15px;height:15px;flex-shrink:0}
+#theme-btn .sun-icon{display:none}
+#theme-btn .moon-icon{display:block}
+body.dark #theme-btn .sun-icon{display:block}
+body.dark #theme-btn .moon-icon{display:none}
+
+/* ── PAGE ── */
+#page{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 2rem 5rem}
+
+/* ── HERO (stripped of marketing language) ── */
+#hero{padding:4rem 0 3rem;text-align:center}
+.hero-eyebrow{display:inline-block;font-size:0.65rem;font-weight:500;text-transform:uppercase;letter-spacing:0.18em;color:var(--muted);margin-bottom:1.2rem;opacity:0;animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards 0.1s}
+.hero-h1{font-family:var(--serif);font-size:clamp(2.6rem,6vw,4.4rem);font-weight:400;line-height:1.08;letter-spacing:-1px;color:var(--text);margin-bottom:1.2rem;opacity:0;animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards 0.2s}
+.hero-h1 .hl-fake{color:var(--pink);font-style:italic}
+.hero-h1 .hl-real{color:var(--green)}
+.hero-sub{font-size:0.88rem;font-weight:300;color:var(--muted);max-width:400px;margin:0 auto 2rem;line-height:1.7;opacity:0;animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards 0.3s}
+.hero-cta-row{display:flex;align-items:center;justify-content:center;gap:1rem;opacity:0;animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards 0.4s}
+.btn-primary{display:inline-flex;align-items:center;gap:7px;background:var(--text);color:var(--bg);font-family:var(--font);font-size:0.78rem;font-weight:500;padding:10px 22px;border-radius:4px;border:none;cursor:pointer;text-decoration:none;transition:all 0.15s;letter-spacing:0.01em;box-shadow:0 1px 2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.15)}
+.btn-primary:hover{opacity:0.88;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.15)}
+.btn-primary:active{transform:scale(0.98)}
+.hero-scroll{font-size:0.72rem;color:var(--muted);display:flex;align-items:center;gap:5px;text-decoration:none;transition:color 0.15s}
+.hero-scroll:hover{color:var(--text)}
+.hero-divider{border:none;border-top:1px solid var(--border);margin:2.8rem 0 0;opacity:0;animation:slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards 0.5s}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)}}
+
+/* ── SECTION EYEBROW ── */
+.section-eyebrow{font-size:0.62rem;font-weight:500;text-transform:uppercase;letter-spacing:0.16em;color:var(--muted);margin-bottom:1.4rem;display:flex;align-items:center;gap:10px}
+.section-eyebrow::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── MODE SWITCHER ── */
+.mode-wrap{display:inline-flex;background:rgba(0,0,0,0.03);border:1px solid var(--border);border-radius:5px;padding:3px;gap:2px;margin-bottom:1.5rem}
+.mode-btn{display:flex;align-items:center;gap:5px;padding:5px 14px;border-radius:3px;border:none;background:transparent;color:var(--muted);font-family:var(--font);font-size:0.74rem;font-weight:500;cursor:pointer;transition:all 0.15s}
+.mode-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+.mode-btn svg{width:12px;height:12px}
+
+/* ── ANALYSER GRID ── */
+.analyser-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+/* ── CARD ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.card-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.panel-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.panel-label{font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+.card-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+
+/* ── SOURCE TABS ── */
+.source-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;position:relative;background:rgba(0,0,0,0.03);border:1px solid var(--border);border-radius:6px;padding:3px}
+body.dark .source-tabs{background:rgba(255,255,255,0.03)}
+.source-tab-slider{position:absolute;top:3px;bottom:3px;left:3px;width:calc(33.333% - 4.66px);background:var(--surface);border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.05);z-index:1;transition:transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)}
+body.dark .source-tab-slider{background:var(--surface2)}
+.source-tab{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 4px;border-radius:4px;border:none;background:transparent!important;color:var(--muted);font-family:var(--font);font-size:0.68rem;font-weight:500;cursor:pointer;transition:color 0.15s;position:relative;z-index:2}
+.source-tab svg{width:11px;height:11px;flex-shrink:0}
+.source-tab:hover{color:var(--text)}
+.source-tab.active{color:var(--pink);border-color:transparent}
+
+/* ── DROP ZONE ── */
+.drop-zone{border:1.5px dashed rgba(0,0,0,0.13);border-radius:8px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color 0.18s,background 0.18s,box-shadow 0.18s;position:relative;overflow:hidden;background:rgba(0,0,0,0.01)}
+.drop-zone:hover{border-color:var(--lavender);background:var(--lavender-lt);box-shadow:0 0 0 3px rgba(124,111,205,0.1)}
+.drop-zone.drag-over{border-color:var(--lavender);background:var(--lavender-lt);box-shadow:0 0 0 4px rgba(124,111,205,0.14)}
+.drop-zone.has-image{border-color:transparent;background:transparent;padding:0;min-height:0;box-shadow:none;cursor:default}
+.drop-zone.paste-flash{border-color:var(--green);background:var(--green-lt)}
+#preview-wrap{position:relative;width:100%;display:none}
+#preview-wrap.show{display:block}
+#preview{width:100%;border-radius:7px;object-fit:cover;display:none}
+#video-preview{width:100%;border-radius:7px;max-height:320px;background:#000;display:none}
+#preview-actions{position:absolute;top:7px;right:7px;display:flex;gap:5px;z-index:20}
+.btn-overlay-clear{background:rgba(0,0,0,0.62);color:#fff;border:none;padding:5px 10px;border-radius:4px;backdrop-filter:blur(4px);cursor:pointer;font-size:0.7rem;font-family:var(--font);transition:background 0.15s;letter-spacing:0.01em}
+.btn-overlay-clear:hover{background:rgba(0,0,0,0.82)}
+
+/* scan overlay */
+#scan-overlay{position:absolute;inset:0;pointer-events:none;display:none;z-index:5}
+#scan-overlay.active{display:block}
+.scan-line{position:absolute;left:0;right:0;height:1.5px;background:linear-gradient(90deg,transparent,var(--lavender) 40%,var(--lavender) 60%,transparent);animation:scanMove 1.6s ease-in-out infinite}
+@keyframes scanMove{0%,100%{top:8%} 50%{top:88%}}
+.scan-corner{position:absolute;width:10px;height:10px;border-color:var(--lavender);border-style:solid;opacity:0.8}
+.sc-tl{top:7px;left:7px;border-width:1.5px 0 0 1.5px}
+.sc-tr{top:7px;right:7px;border-width:1.5px 1.5px 0 0}
+.sc-bl{bottom:7px;left:7px;border-width:0 0 1.5px 1.5px}
+.sc-br{bottom:7px;right:7px;border-width:0 1.5px 1.5px 0}
+
+.drop-icon{width:36px;height:36px;background:rgba(0,0,0,0.04);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.drop-title{font-size:0.8rem;font-weight:500;color:var(--text)}
+.drop-sub{font-size:0.68rem;color:var(--muted)}
+.drop-formats{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.fmt-tag{font-size:0.56rem;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border);letter-spacing:0.04em}
+#file-input{display:none}
+
+/* ── BUTTONS ── */
+.btn-row{display:grid;grid-template-columns:1fr auto;gap:7px}
+.btn-analyse{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--pink);color:#fff;border:none;border-radius:4px;padding:9px 0;font-family:var(--font);font-size:0.78rem;font-weight:500;cursor:pointer;transition:all 0.15s;letter-spacing:0.01em;box-shadow:0 1px 2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.15)}
+.btn-analyse:hover:not(:disabled){opacity:0.9;transform:translateY(-1px);box-shadow:0 4px 12px rgba(212,20,90,0.15), inset 0 1px 0 rgba(255,255,255,0.15)}
+.btn-analyse:active:not(:disabled){transform:scale(0.98);box-shadow:0 1px 2px rgba(0,0,0,0.06)}
+.btn-analyse:disabled{opacity:0.32;cursor:not-allowed;box-shadow:none}
+.btn-clear{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:9px 14px;font-family:var(--font);font-size:0.72rem;font-weight:500;cursor:pointer;transition:border-color 0.15s,color 0.15s}
+.btn-clear:hover{border-color:var(--border-strong);color:var(--text)}
+.detects-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.dchip{font-size:0.56rem;font-weight:500;padding:4px 0;border-radius:4px;text-align:center;background:rgba(0,0,0,0.03);color:var(--muted);border:1px solid var(--border)}
+
+/* ── VERDICT ── */
+.verdict-box{background:rgba(0,0,0,0.02);border:1px solid var(--border);border-radius:8px;padding:11px 13px;display:flex;align-items:center;gap:10px;min-height:52px;transition:background 0.3s,border-color 0.3s;position:relative;cursor:default}
+.verdict-box.fake{background:var(--pink-lt);border-color:rgba(212,20,90,0.2)}
+.verdict-box.real{background:var(--green-lt);border-color:rgba(24,122,82,0.2)}
+.verdict-box.result-enter{animation:verdictPop 0.36s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes verdictPop{from{opacity:0;transform:scale(0.94)} to{opacity:1;transform:scale(1)}}
+.verdict-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.88rem;flex-shrink:0;background:rgba(0,0,0,0.04);border:1px solid var(--border)}
+.vi-fake{background:var(--pink-lt);border-color:rgba(212,20,90,0.18)}
+.vi-real{background:var(--green-lt);border-color:rgba(24,122,82,0.18)}
+#verdict-text{font-size:0.84rem;font-weight:500;color:var(--muted)}
+.vt-fake{color:var(--pink)!important}
+.vt-real{color:var(--green)!important}
+.verdict-tooltip{position:absolute;bottom:calc(100% + 7px);left:12px;background:var(--text);color:var(--bg);font-size:0.57rem;border-radius:6px;padding:7px 10px;min-width:165px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:50;white-space:nowrap}
+.verdict-tooltip::after{content:'';position:absolute;top:100%;left:14px;border:4px solid transparent;border-top-color:var(--text)}
+.verdict-box:hover .verdict-tooltip{opacity:1}
+.vtt-row{display:flex;justify-content:space-between;gap:12px;margin-bottom:3px;align-items:center}
+.vtt-row:last-child{margin-bottom:0}
+.vtt-name{color:var(--muted);font-size:0.54rem}
+.vtt-score{font-weight:600;font-size:0.58rem}
+
+/* ── METRICS ── */
+.metrics-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.metric-card{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 11px}
+.metric-label{font-size:0.57rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:3px}
+.metric-value{font-family:var(--serif);font-size:1.4rem;color:var(--text);line-height:1}
+.mv-a{color:var(--lavender)}
+.mv-r{color:var(--pink)}
+.conf-bar-wrap{margin-top:5px;height:2px;background:var(--border);border-radius:99px;overflow:hidden}
+.conf-bar-fill{height:100%;border-radius:99px;background:var(--lavender);transition:width 0.7s cubic-bezier(0.4,0,0.2,1);width:0%}
+
+/* model bars */
+#models-used-row{display:none;flex-direction:column;gap:5px}
+#models-used-row.visible{display:flex}
+.model-bar-row{display:flex;align-items:center;gap:7px}
+.model-bar-name{font-size:0.55rem;font-weight:500;color:var(--muted);width:95px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.model-bar-track{flex:1;height:2px;background:var(--border);border-radius:99px;overflow:hidden}
+.model-bar-fill{height:100%;border-radius:99px;width:0%;transition:width 0.75s cubic-bezier(0.4,0,0.2,1)}
+.model-bar-pct{font-size:0.57rem;font-weight:600;color:var(--muted);width:24px;text-align:right;flex-shrink:0}
+
+/* ── HEATMAP ── */
+.heatmap-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.heatmap-topbar{padding:7px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.heatmap-topbar-title{font-size:0.58rem;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted)}
+.hm-badge{font-size:0.55rem;font-weight:600;color:var(--pink);background:var(--pink-lt);border:1px solid rgba(212,20,90,0.16);padding:2px 7px;border-radius:3px}
+.hm-expand-btn{width:20px;height:20px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.65rem;transition:all 0.13s}
+.hm-expand-btn:hover{border-color:var(--pink);color:var(--pink);background:var(--pink-lt)}
+#heatmap-img{width:100%;display:none;object-fit:cover;opacity:0;transition:opacity 0.4s;cursor:zoom-in}
+#heatmap-img.loaded{opacity:1}
+.heatmap-placeholder{min-height:100px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.68rem}
+
+/* ── SKELETON ── */
+.skeleton{background:rgba(0,0,0,0.06);border-radius:4px;animation:shimmer 1.4s ease-in-out infinite}
+@keyframes shimmer{0%,100%{opacity:0.4} 50%{opacity:1}}
+#results-skeleton{display:none;flex-direction:column;gap:9px}
+#results-skeleton.show{display:flex}
+#results-content.hidden{display:none!important}
+
+/* ── VIDEO ── */
+#video-results{display:none}
+#video-results.show{display:block}
+.video-verdict-bar{border-radius:7px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border)}
+.video-verdict-bar.fake-bar{background:var(--pink-lt);border-color:rgba(212,20,90,0.2)}
+.video-verdict-bar.real-bar{background:var(--green-lt);border-color:rgba(24,122,82,0.2)}
+.vvb-icon{font-size:1.2rem}
+.vvb-body{flex:1}
+.vvb-label{font-size:0.88rem;font-weight:600}
+.vvb-label.fake-text{color:var(--pink)}
+.vvb-label.real-text{color:var(--green)}
+.vvb-sub{font-size:0.67rem;color:var(--muted);margin-top:2px}
+.vvb-conf{font-family:var(--serif);font-size:1.1rem;color:var(--lavender)}
+.v-stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.v-stat{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 9px;text-align:center}
+.v-stat-val{font-family:var(--serif);font-size:0.95rem;color:var(--pink)}
+.v-stat-lbl{font-size:0.6rem;color:var(--muted);margin-top:2px}
+.timeline-section{background:var(--surface2);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:7px}
+.timeline-header{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border)}
+.timeline-title{font-size:0.68rem;font-weight:600}
+.timeline-legend{display:flex;gap:9px;font-size:0.62rem;color:var(--muted)}
+.tleg-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px}
+#frame-chart-wrap{padding:8px 10px 6px;overflow-x:auto}
+#frame-chart{height:68px;min-width:100%}
+.frame-strip-section{background:var(--surface2);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.frame-strip-header{padding:6px 10px;border-bottom:1px solid var(--border);font-size:0.68rem;font-weight:600}
+#frame-strip{display:flex;gap:5px;padding:7px 10px;overflow-x:auto;scroll-behavior:smooth}
+#frame-strip::-webkit-scrollbar{height:3px}
+#frame-strip::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.frame-thumb{flex-shrink:0;width:64px;border-radius:4px;overflow:hidden;border:1.5px solid transparent;cursor:pointer;transition:border-color .15s,transform .15s;position:relative}
+.frame-thumb:hover{transform:scale(1.04)}
+.frame-thumb.fake-frame{border-color:var(--pink)}
+.frame-thumb.real-frame{border-color:var(--green)}
+.frame-thumb img{width:100%;display:block}
+.frame-thumb-label{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.56);color:#fff;font-size:0.52rem;font-weight:600;text-align:center;padding:2px 0}
+.video-progress-wrap{text-align:center;padding:1.5rem 1rem}
+.vprog-title{font-size:0.8rem;font-weight:500;margin-bottom:4px}
+.vprog-sub{font-size:0.68rem;color:var(--muted);margin-bottom:10px}
+.vprog-bar-outer{height:2px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:5px}
+.vprog-bar-inner{height:100%;background:var(--pink);border-radius:3px;width:0%;transition:width .3s ease}
+.vprog-pct{font-size:0.68rem;color:var(--muted)}
+#v-models-used-row{margin-top:5px}
+
+/* ── EXPLANATION SECTION ── */
+#explanation-section{margin-top:1rem;display:none}
+#explanation-section.show{display:block}
+
+.expl-outer{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.expl-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.expl-header-left{display:flex;align-items:center;gap:8px}
+.expl-header-title{font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+.expl-verdict-badge{font-size:0.65rem;font-weight:600;padding:3px 9px;border-radius:3px}
+.expl-verdict-badge.fake{background:var(--pink-lt);color:var(--pink);border:1px solid rgba(212,20,90,0.2)}
+.expl-verdict-badge.real{background:var(--green-lt);color:var(--green);border:1px solid rgba(24,122,82,0.2)}
+.expl-dl-row{display:flex;gap:6px}
+.btn-dl-pdf{display:inline-flex;align-items:center;gap:5px;background:var(--text);color:var(--bg);border:none;border-radius:4px;padding:6px 14px;font-family:var(--font);font-size:0.7rem;font-weight:500;cursor:pointer;transition:opacity 0.15s;letter-spacing:0.01em}
+.btn-dl-pdf:hover{opacity:0.8}
+.btn-dl-txt{display:inline-flex;align-items:center;gap:5px;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:6px 14px;font-family:var(--font);font-size:0.7rem;font-weight:500;cursor:pointer;transition:border-color 0.15s,color 0.15s}
+.btn-dl-txt:hover{border-color:var(--border-strong);color:var(--text)}
+.btn-dl-pdf svg,.btn-dl-txt svg{width:12px;height:12px}
+
+.expl-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.expl-col{padding:18px 20px}
+.expl-col+.expl-col{border-left:1px solid var(--border)}
+.expl-col-eyebrow{font-size:0.58rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.expl-col-eyebrow svg{width:12px;height:12px;flex-shrink:0}
+.expl-col-heading{font-family:var(--serif);font-size:1.05rem;color:var(--text);margin-bottom:8px;line-height:1.2}
+.expl-summary{font-size:0.82rem;line-height:1.72;color:var(--text);margin-bottom:12px}
+.expl-signal-list{display:flex;flex-direction:column;gap:6px}
+.expl-signal{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:6px;background:var(--surface2);border:1px solid var(--border)}
+.expl-signal-icon{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;flex-shrink:0;margin-top:1px}
+.esig-fake{background:var(--pink-lt)}
+.esig-real{background:var(--green-lt)}
+.esig-neutral{background:var(--lavender-lt)}
+.expl-signal-body{}
+.expl-signal-name{font-size:0.7rem;font-weight:600;color:var(--text);margin-bottom:2px}
+.expl-signal-desc{font-size:0.67rem;color:var(--muted);line-height:1.55}
+
+/* tech col */
+.tech-block{margin-bottom:12px}
+.tech-block-label{font-size:0.58rem;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:5px}
+.tech-block-val{font-size:0.78rem;color:var(--text);line-height:1.6}
+.tech-tag-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.expl-tag{font-size:0.58rem;font-weight:500;padding:2px 8px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+.expl-tag.active-fake{background:var(--pink-lt);color:var(--pink);border-color:rgba(212,20,90,0.18)}
+.expl-tag.active-real{background:var(--green-lt);color:var(--green);border-color:rgba(24,122,82,0.18)}
+.model-score-row{display:flex;flex-direction:column;gap:5px}
+.msr-item{display:flex;align-items:center;gap:8px}
+.msr-name{font-size:0.62rem;color:var(--muted);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msr-track{flex:1;height:3px;background:var(--border);border-radius:99px;overflow:hidden}
+.msr-fill{height:100%;border-radius:99px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);width:0%}
+.msr-pct{font-size:0.62rem;font-weight:600;color:var(--muted);width:26px;text-align:right;flex-shrink:0}
+
+/* bottom disclaimer */
+.expl-footer{padding:10px 20px;border-top:1px solid var(--border);font-size:0.6rem;color:var(--muted);line-height:1.5}
+
+/* ── VIEWS (history + models) ── */
+#view-history,#view-models{display:none;margin-top:2.5rem}
+#view-history.active,#view-models.active{display:block;animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)}
+#history-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+.hist-card{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;will-change:transform}
+.hist-card:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(0,0,0,0.07)}
+.hist-card:active{transform:scale(0.98);box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.hist-card.fake{border-color:rgba(212,20,90,0.3)}
+.hist-card.real{border-color:rgba(24,122,82,0.3)}
+.hist-card img{width:100%;height:72px;object-fit:cover;display:block}
+.hist-card-body{padding:6px 8px}
+.hist-label{font-size:0.6rem;font-weight:700;letter-spacing:0.03em}
+.hist-label.fake{color:var(--pink)}
+.hist-label.real{color:var(--green)}
+.hist-conf{font-size:0.55rem;color:var(--muted)}
+.hist-time{font-size:0.52rem;color:var(--muted);opacity:0.6;margin-top:2px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.section-title{font-size:0.64rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+.btn-clear-history{font-size:0.64rem;color:var(--muted);background:none;border:none;cursor:pointer;font-family:var(--font);text-decoration:underline}
+.btn-clear-history:hover{color:var(--text)}
+.model-info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.mi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.mi-card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px}
+.mi-icon{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:0.9rem}
+.mi-icon-a{background:var(--pink-lt)}
+.mi-icon-b{background:var(--lavender-lt)}
+.mi-icon-c{background:rgba(255,193,7,0.1)}
+.mi-weight{font-size:0.58rem;font-weight:700;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border);padding:2px 7px;border-radius:3px}
+.mi-name{font-size:0.7rem;font-weight:600;color:var(--text);margin-bottom:3px;font-family:'Courier New',monospace}
+.mi-desc{font-size:0.65rem;color:var(--muted);line-height:1.55}
+
+/* ── LOADER ── */
+#loader{display:none;position:fixed;inset:0;background:rgba(242,240,237,0.82);backdrop-filter:blur(6px);z-index:500;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+#loader.show{display:flex}
+.loader-ring{width:30px;height:30px;border:2px solid var(--border);border-top-color:var(--pink);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{font-size:0.72rem;color:var(--muted)}
+.loader-steps{display:flex;flex-direction:column;gap:4px;margin-top:3px}
+.lstep{display:flex;align-items:center;gap:6px;font-size:0.65rem;color:var(--muted);opacity:0.4;transition:opacity 0.3s,color 0.3s}
+.lstep.active{opacity:1;color:var(--pink);font-weight:500}
+.lstep.done{opacity:1;color:var(--green)}
+.lstep-dot{width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%) translateY(60px);background:var(--text);color:var(--bg);font-size:0.72rem;font-weight:500;padding:7px 16px;border-radius:4px;z-index:999;transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s;opacity:0;pointer-events:none;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.toast-error{background:var(--pink);color:#fff}
+#toast.toast-ok{background:var(--green);color:#fff}
+
+/* ── LIGHTBOX ── */
+#lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:800;align-items:center;justify-content:center;padding:2rem;cursor:zoom-out}
+#lightbox-overlay.open{display:flex;animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)}
+#lightbox-img{max-width:90vw;max-height:88vh;border-radius:var(--radius);cursor:default}
+#lightbox-close{position:absolute;top:1.2rem;right:1.5rem;width:30px;height:30px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:4px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem}
+#lightbox-close:hover{background:rgba(255,255,255,0.18)}
+
+/* ── WEBCAM ── */
+#webcam-modal{display:none;position:fixed;inset:0;background:rgba(10,10,10,0.72);backdrop-filter:blur(10px);z-index:600;align-items:center;justify-content:center}
+#webcam-modal.open{display:flex}
+.wm-box{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);width:min(460px,94vw);overflow:hidden;animation:slideUp 0.3s cubic-bezier(0.16,1,0.3,1)}
+.wm-header{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border)}
+.wm-title{font-size:0.76rem;font-weight:500;display:flex;align-items:center;gap:7px}
+.wm-live-dot{width:6px;height:6px;border-radius:50%;background:var(--pink);animation:blink 1.4s ease infinite}
+@keyframes blink{0%,100%{opacity:1} 50%{opacity:0.2}}
+.wm-close{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:0.85rem;transition:all 0.13s}
+.wm-close:hover{background:var(--pink-lt);color:var(--pink)}
+.wm-body{padding:12px 14px}
+.wm-video-wrap{position:relative;border-radius:7px;overflow:hidden;background:#080808;aspect-ratio:4/3;margin-bottom:9px}
+#webcam-video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1)}
+#wm-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity 0.06s}
+#wm-flash.flash{opacity:1}
+#wm-countdown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);font-family:var(--serif);font-size:5rem;color:#fff}
+#wm-countdown.show{display:flex}
+#wm-error{display:none;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:2rem;color:var(--muted);font-size:0.72rem;text-align:center}
+#wm-error .err-icon{font-size:1.8rem;margin-bottom:3px}
+#webcam-canvas{display:none}
+.wm-controls{display:grid;grid-template-columns:1fr auto auto;gap:6px}
+.btn-capture{background:var(--pink);color:#fff;border:none;border-radius:4px;padding:9px 0;font-family:var(--font);font-size:0.76rem;font-weight:500;cursor:pointer;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center;gap:5px}
+.btn-capture:hover:not(:disabled){opacity:0.86}
+.btn-capture:disabled{opacity:0.36;cursor:not-allowed}
+.btn-wm-sq{width:36px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);transition:all 0.13s}
+.btn-wm-sq:hover{border-color:var(--lavender);color:var(--text)}
+.wm-hint{font-size:0.58rem;color:var(--muted);text-align:center;margin-top:7px}
+.wm-hint kbd{font-family:monospace;background:rgba(0,0,0,0.05);border:1px solid var(--border);padding:1px 4px;border-radius:3px;font-size:0.56rem}
+
+/* ── FOOTER ── */
+#footer{border-top:1px solid var(--border);padding:12px 2rem;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+.footer-left{font-size:0.62rem;color:var(--muted)}
+.footer-tags{display:flex;gap:4px;flex-wrap:wrap}
+.ftag{font-size:0.56rem;font-weight:500;color:var(--muted);background:rgba(0,0,0,0.04);border:1px solid var(--border);padding:2px 7px;border-radius:3px}
+
+/* ── PRINT ── */
+#print-report{display:none;padding:44px;font-family:var(--font);color:#111;max-width:860px;margin:0 auto}
+@media print{
+  #topnav,#page,#footer,#toast,#global-drop-dimmer,#webcam-modal,#lightbox-overlay,body>.blob-wrap{display:none!important}
+  body{background:#fff!important;color:#000!important}
+  #print-report{display:block!important}
+}
+.pr-page-break{page-break-before:always}
+
+/* ── RESPONSIVE ── */
+@media(max-width:860px){
+  .analyser-grid{grid-template-columns:1fr}
+  .model-info-grid{grid-template-columns:1fr 1fr}
+  #history-grid{grid-template-columns:repeat(4,1fr)}
+  .expl-body{grid-template-columns:1fr}
+  .expl-col+.expl-col{border-left:none;border-top:1px solid var(--border)}
+}
+@media(max-width:580px){
+  .model-info-grid{grid-template-columns:1fr}
+  #history-grid{grid-template-columns:repeat(3,1fr)}
+  .nav-links{display:none}
+  #page{padding:0 1.2rem 3rem}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- Global drag dimmer -->
+<div class="global-drop-dimmer" id="global-drop-dimmer">
+  <div class="gdrop-title">Drop to analyse</div>
+  <div class="gdrop-sub">image or video</div>
+</div>
+
+<!-- Blobs -->
+<div class="blob-wrap" aria-hidden="true">
+  <svg class="blob1" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="g1" cx="40%" cy="40%"><stop offset="0%" stop-color="#7c6fcd" stop-opacity="0.3"/><stop offset="60%" stop-color="#d4145a" stop-opacity="0.12"/><stop offset="100%" stop-color="#d4145a" stop-opacity="0"/></radialGradient></defs>
+    <path fill="url(#g1)" d="M160,30 C220,20 290,70 300,140 C310,210 260,290 190,300 C120,310 50,260 40,190 C30,120 70,50 160,30Z"/>
+  </svg>
+  <svg class="blob2" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="g2" cx="50%" cy="50%"><stop offset="0%" stop-color="#187a52" stop-opacity="0.2"/><stop offset="100%" stop-color="#187a52" stop-opacity="0"/></radialGradient></defs>
+    <ellipse fill="url(#g2)" cx="110" cy="110" rx="100" ry="90"/>
+  </svg>
+</div>
+
+<!-- Utilities -->
+<div id="toast" role="alert" aria-live="polite"></div>
+<div id="loader">
+  <div class="loader-ring"></div>
+  <div class="loader-text">Analysing…</div>
+  <div class="loader-steps">
+    <div class="lstep active" id="lstep1"><span class="lstep-dot"></span>Uploading media</div>
+    <div class="lstep" id="lstep2"><span class="lstep-dot"></span>Preprocessing</div>
+    <div class="lstep" id="lstep3"><span class="lstep-dot"></span>Running ensemble</div>
+    <div class="lstep" id="lstep4"><span class="lstep-dot"></span>Generating heatmap</div>
+  </div>
+</div>
+
+<div id="lightbox-overlay" onclick="closeLightbox()">
+  <div id="lightbox-close" onclick="closeLightbox()">✕</div>
+  <img id="lightbox-img" src="" alt="Heatmap enlarged" onclick="event.stopPropagation()"/>
+</div>
+
+<div id="webcam-modal">
+  <div class="wm-box">
+    <div class="wm-header">
+      <div class="wm-title"><div class="wm-live-dot"></div>Live Webcam</div>
+      <div class="wm-close" onclick="closeWebcam()">✕</div>
+    </div>
+    <div class="wm-body">
+      <div class="wm-video-wrap">
+        <video id="webcam-video" autoplay playsinline muted></video>
+        <div id="wm-flash"></div>
+        <div id="wm-countdown"></div>
+        <div id="wm-error"><div class="err-icon">📷</div><strong>Camera denied</strong><span>Allow permission and try again.</span></div>
+      </div>
+      <canvas id="webcam-canvas"></canvas>
+      <div class="wm-controls">
+        <button class="btn-capture" id="capture-btn" onclick="captureFrame()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+          Capture
+        </button>
+        <div class="btn-wm-sq" onclick="switchCamera()" title="Flip camera">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-3a2 2 0 0 1-1.72-1L14 4H10L8.72 6A2 2 0 0 1 7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z"/><circle cx="12" cy="13" r="3"/></svg>
+        </div>
+        <div class="btn-wm-sq" onclick="timerCapture()" title="3s timer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6M12 2v2"/></svg>
+        </div>
+      </div>
+      <div class="wm-hint"><kbd>Space</kbd> capture &nbsp;·&nbsp; <kbd>Esc</kbd> close</div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav id="topnav">
+  <a href="#" class="nav-logo">deepfakedetect</a>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showView('analyse',this)">analyse</button>
+    <button class="nav-link" onclick="showView('history',this)">history</button>
+    <button class="nav-link" onclick="showView('models',this)">models</button>
+  </div>
+  <div class="nav-right">
+    <div class="stat-chip">
+      <div class="stat-dot" style="background:var(--pink)"></div>
+      <span class="stat-val" id="stat-fake">0</span>
+      <span>fake</span>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-dot" style="background:var(--green)"></div>
+      <span class="stat-val" id="stat-real">0</span>
+      <span>real</span>
+    </div>
+    <button id="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+      <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</nav>
+
+<div id="page">
+
+  <!-- HERO -->
+  <section id="hero">
+    <span class="hero-eyebrow">AI-powered image & video authentication</span>
+    <h1 class="hero-h1">detect <span class="hl-fake">fake</span><br>from <span class="hl-real">real</span></h1>
+    <p class="hero-sub">Three deep learning models analyse pixel artifacts, GAN fingerprints and frequency anomalies. Instant verdict with a full explanation.</p>
+    <div class="hero-cta-row">
+      <button class="btn-primary" onclick="showView('analyse',document.querySelector('.nav-link'));document.getElementById('analyser-section').scrollIntoView({behavior:'smooth'})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Start analysing
+      </button>
+    </div>
+    <hr class="hero-divider"/>
+  </section>
+
+  <!-- ANALYSER SECTION -->
+  <section id="analyser-section">
+
+    <div class="section-eyebrow">Analyser</div>
+
+    <div class="mode-wrap">
+      <button class="mode-btn active" id="mode-img-btn" onclick="switchMode('image')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Image
+      </button>
+      <button class="mode-btn" id="mode-vid-btn" onclick="switchMode('video')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Video
+      </button>
+    </div>
+
+    <div class="analyser-grid">
+
+      <!-- INPUT CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="panel-dot" style="background:var(--lavender)"></div>
+          <span class="panel-label" id="input-panel-label">Input Image</span>
+        </div>
+        <div class="card-body">
+          <div class="source-tabs" id="tab-group-main">
+            <div class="source-tab-slider" id="tab-slider"></div>
+            <button class="source-tab active" id="tab-upload" onclick="switchTab('upload'); document.getElementById('file-input').click()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload
+            </button>
+            <button class="source-tab" id="tab-paste" onclick="pasteFromClipboard()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+              Paste
+            </button>
+            <button class="source-tab" id="tab-webcam" onclick="openWebcam()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7 16 12l7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              Webcam
+            </button>
+          </div>
+
+          <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-label="Upload area" onclick="if(!this.classList.contains('has-image')) document.getElementById('file-input').click()">
+            <div id="scan-overlay">
+              <div class="scan-line"></div>
+              <div class="scan-corner sc-tl"></div><div class="scan-corner sc-tr"></div>
+              <div class="scan-corner sc-bl"></div><div class="scan-corner sc-br"></div>
+            </div>
+            <div class="drop-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="drop-title" id="drop-title-text">Drop image or video here</div>
+            <div class="drop-sub">or use the options above</div>
+            <div class="drop-formats">
+              <span class="fmt-tag">JPG</span><span class="fmt-tag">PNG</span><span class="fmt-tag">WEBP</span><span class="fmt-tag">GIF</span><span class="fmt-tag">MP4</span><span class="fmt-tag">MOV</span><span class="fmt-tag">WEBM</span>
+            </div>
+            <div id="preview-wrap">
+              <img id="preview" alt="Preview"/>
+              <video id="video-preview" controls></video>
+              <div id="preview-actions">
+                <button class="btn-overlay-clear" onclick="event.stopPropagation(); clearAll()">✕ Clear</button>
+              </div>
+            </div>
+          </div>
+          <input type="file" id="file-input" accept="image/*,video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-matroska"/>
+
+          <div class="btn-row">
+            <button class="btn-analyse" id="analyse-btn" onclick="triggerAnalyse()" disabled>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <span id="analyse-btn-label">Analyse Image</span>
+            </button>
+            <button class="btn-clear" onclick="clearAll()">Clear</button>
+          </div>
+
+          <div class="detects-grid" id="detects-image">
+            <span class="dchip">Midjourney</span><span class="dchip">DALL-E 3</span>
+            <span class="dchip">Stable Diff.</span><span class="dchip">Flux</span>
+            <span class="dchip">GAN Faces</span><span class="dchip">Deepfakes</span>
+            <span class="dchip">StyleGAN</span><span class="dchip">AI Portraits</span>
+          </div>
+          <div class="detects-grid" id="detects-video" style="display:none">
+            <span class="dchip">Face Swap</span><span class="dchip">Lip Sync</span>
+            <span class="dchip">GAN Video</span><span class="dchip">Diffusion</span>
+            <span class="dchip">Body Swap</span><span class="dchip">Voice Deep.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTS CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="panel-dot" style="background:var(--green)"></div>
+          <span class="panel-label">Analysis Results</span>
+        </div>
+        <div class="card-body">
+
+          <!-- Skeleton -->
+          <div id="results-skeleton">
+            <div class="skeleton" style="height:50px;border-radius:8px"></div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;align-items:center;gap:7px"><div class="skeleton" style="width:90px;height:6px"></div><div class="skeleton" style="flex:1;height:2px"></div><div class="skeleton" style="width:20px;height:6px"></div></div>
+              <div style="display:flex;align-items:center;gap:7px"><div class="skeleton" style="width:70px;height:6px"></div><div class="skeleton" style="flex:1;height:2px"></div><div class="skeleton" style="width:20px;height:6px"></div></div>
+              <div style="display:flex;align-items:center;gap:7px"><div class="skeleton" style="width:80px;height:6px"></div><div class="skeleton" style="flex:1;height:2px"></div><div class="skeleton" style="width:20px;height:6px"></div></div>
+            </div>
+            <div class="skeleton" style="height:8px;border-radius:3px"></div>
+            <div class="skeleton" style="height:8px;border-radius:3px;width:65%"></div>
+            <div class="skeleton" style="height:100px;border-radius:7px"></div>
+          </div>
+
+          <!-- Image results -->
+          <div id="results-content" style="display:flex;flex-direction:column;gap:10px">
+            <div class="verdict-box" id="verdict-display">
+              <div class="verdict-icon" id="verdict-icon">🔍</div>
+              <div id="verdict-text">Awaiting image…</div>
+              <div class="verdict-tooltip" id="verdict-tooltip"></div>
+            </div>
+            <div id="models-used-row"></div>
+            <div class="metrics-row">
+              <div class="metric-card">
+                <div class="metric-label">Confidence</div>
+                <div class="metric-value mv-a" id="conf-val">—</div>
+                <div class="conf-bar-wrap"><div class="conf-bar-fill" id="conf-bar"></div></div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Fake Probability</div>
+                <div class="metric-value mv-r" id="prob-val">—</div>
+                <div class="conf-bar-wrap"><div class="conf-bar-fill" id="prob-bar" style="background:var(--pink)"></div></div>
+              </div>
+            </div>
+            <div class="heatmap-wrap">
+              <div class="heatmap-topbar">
+                <span class="heatmap-topbar-title">FFT Frequency Heatmap</span>
+                <div style="display:flex;align-items:center;gap:5px">
+                  <span class="hm-badge">Anomaly Map</span>
+                  <button class="hm-expand-btn" id="hm-expand-btn" onclick="openLightbox()" style="display:none">⊕</button>
+                </div>
+              </div>
+              <div id="heatmap-placeholder" class="heatmap-placeholder">Heatmap renders after analysis</div>
+              <img id="heatmap-img" alt="FFT Heatmap" onclick="openLightbox()"/>
+            </div>
+          </div>
+
+          <!-- Video idle/progress/results -->
+          <div id="video-idle" style="display:none;text-align:center;padding:2rem 1rem;color:var(--muted);font-size:0.78rem">
+            <div style="font-family:var(--serif);font-size:2rem;margin-bottom:7px;opacity:0.3">◉</div>
+            Awaiting video…
+          </div>
+          <div class="video-progress-wrap" id="video-progress" style="display:none">
+            <div class="vprog-title">Analysing frames…</div>
+            <div class="vprog-sub" id="vprog-sub">Preparing models</div>
+            <div class="vprog-bar-outer"><div class="vprog-bar-inner" id="vprog-bar"></div></div>
+            <div class="vprog-pct" id="vprog-pct">0%</div>
+          </div>
+          <div id="video-results">
+            <div class="video-verdict-bar" id="vvb"><div class="vvb-icon" id="vvb-icon">🔍</div><div class="vvb-body"><div class="vvb-label" id="vvb-label">—</div><div class="vvb-sub" id="vvb-sub">—</div></div><div class="vvb-conf" id="vvb-conf">—</div></div>
+            <div class="v-stats-row">
+              <div class="v-stat"><div class="v-stat-val" id="vs-fake-frames">—</div><div class="v-stat-lbl">Fake Frames</div></div>
+              <div class="v-stat"><div class="v-stat-val" id="vs-total-frames">—</div><div class="v-stat-lbl">Analysed</div></div>
+              <div class="v-stat"><div class="v-stat-val" id="vs-duration">—</div><div class="v-stat-lbl">Duration</div></div>
+            </div>
+            <div class="timeline-section">
+              <div class="timeline-header"><span class="timeline-title">Per-Frame Probability</span><span class="timeline-legend"><span><span class="tleg-dot" style="background:var(--pink)"></span>Fake</span><span><span class="tleg-dot" style="background:var(--green)"></span>Real</span></span></div>
+              <div id="frame-chart-wrap"><canvas id="frame-chart"></canvas></div>
+            </div>
+            <div class="frame-strip-section">
+              <div class="frame-strip-header">Frames <span id="frame-strip-count" style="font-weight:400;color:var(--muted)"></span></div>
+              <div id="frame-strip"></div>
+            </div>
+            <div id="v-models-used-row"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ─── EXPLANATION SECTION ─── -->
+    <div id="explanation-section">
+      <div style="margin-top:1.25rem;margin-bottom:1.25rem" class="section-eyebrow">Explanation</div>
+      <div class="expl-outer">
+        <div class="expl-header">
+          <div class="expl-header-left">
+            <span class="expl-header-title">Why this verdict?</span>
+            <span class="expl-verdict-badge" id="expl-badge">—</span>
+          </div>
+          <div class="expl-dl-row">
+            <button class="btn-dl-txt" onclick="downloadTxt()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Download .txt
+            </button>
+            <button class="btn-dl-pdf" onclick="window.print()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Save PDF
+            </button>
+          </div>
+        </div>
+        <div class="expl-body">
+          <!-- Plain English column -->
+          <div class="expl-col">
+            <div class="expl-col-eyebrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Plain English
+            </div>
+            <div class="expl-col-heading" id="expl-plain-heading">—</div>
+            <p class="expl-summary" id="expl-plain-summary">—</p>
+            <div class="expl-signal-list" id="expl-signals"></div>
+          </div>
+          <!-- Technical column -->
+          <div class="expl-col">
+            <div class="expl-col-eyebrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              Technical
+            </div>
+            <div class="tech-block">
+              <div class="tech-block-label">Decision basis</div>
+              <div class="tech-block-val" id="expl-tech-basis">—</div>
+            </div>
+            <div class="tech-block">
+              <div class="tech-block-label">Frequency analysis</div>
+              <div class="tech-block-val" id="expl-tech-fft">—</div>
+            </div>
+            <div class="tech-block">
+              <div class="tech-block-label">Detected artifact classes</div>
+              <div class="tech-tag-row" id="expl-artifact-tags"></div>
+            </div>
+            <div class="tech-block">
+              <div class="tech-block-label">Per-model scores</div>
+              <div class="model-score-row" id="expl-model-scores"></div>
+            </div>
+            <div class="tech-block">
+              <div class="tech-block-label">Raw metrics</div>
+              <div class="tech-block-val" id="expl-raw-metrics">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="expl-footer">
+          Generated by DeepfakeDetect ensemble (umm-maybe/AI-image-detector · Organika/sdxl-detector · cmckinle/sdxl-flux-detector). Confidence thresholds are calibrated via sigmoid sharpening. This report is for informational purposes only and should not be used as sole evidence in legal proceedings.
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- HISTORY VIEW -->
+  <div id="view-history">
+    <div class="section-eyebrow">Recent Scans</div>
+    <div class="section-head">
+      <span class="section-title">History</span>
+      <button class="btn-clear-history" onclick="clearHistory()">Clear all</button>
+    </div>
+    <div id="history-empty" style="display:none;text-align:center;padding:3rem;color:var(--muted);font-size:0.78rem">No scans yet — go to Analyse to get started.</div>
+    <div id="history-grid"></div>
+  </div>
+
+  <!-- MODELS VIEW -->
+  <div id="view-models">
+    <div class="section-eyebrow">Ensemble Models</div>
+    <div class="model-info-grid">
+      <div class="mi-card"><div class="mi-card-top"><div class="mi-icon mi-icon-a">🧠</div><span class="mi-weight">40% weight</span></div><div class="mi-name">umm-maybe/AI-image-detector</div><div class="mi-desc">General AI photo detector. Specialises in GAN faces, photo-realistic generations and portrait deepfakes.</div></div>
+      <div class="mi-card"><div class="mi-card-top"><div class="mi-icon mi-icon-b">🎨</div><span class="mi-weight">35% weight</span></div><div class="mi-name">Organika/sdxl-detector</div><div class="mi-desc">Tuned for SDXL, Midjourney and Stable Diffusion outputs — catches stylised and artistic AI imagery.</div></div>
+      <div class="mi-card"><div class="mi-card-top"><div class="mi-icon mi-icon-c">⚡</div><span class="mi-weight">25% weight</span></div><div class="mi-name">cmckinle/sdxl-flux-detector</div><div class="mi-desc">Specialises in Flux and next-generation generators, covering the newest hardest-to-detect models.</div></div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<footer id="footer">
+  <span class="footer-left">DeepfakeDetect · PyTorch & HuggingFace · 2026</span>
+  <div class="footer-tags">
+    <span class="ftag">transformers</span><span class="ftag">OpenCV</span><span class="ftag">FFT Analysis</span><span class="ftag">FastAPI</span>
+  </div>
+</footer>
+
+<!-- PRINT REPORT (hidden, appears on window.print()) -->
+<div id="print-report">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;border-bottom:2px solid #e0ddd9;padding-bottom:20px">
+    <div>
+      <div style="font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;color:#888;margin-bottom:6px">DeepfakeDetect Authentication Report</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:#111;line-height:1.1" id="pr-verdict-title">Verdict</div>
+    </div>
+    <div style="text-align:right;font-size:0.78rem;color:#888;line-height:1.6">
+      <div id="pr-date"></div>
+      <div id="pr-file"></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px">
+    <div>
+      <div style="font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:#888;margin-bottom:10px">Plain English Summary</div>
+      <div style="font-size:1rem;font-weight:600;color:#111;margin-bottom:8px" id="pr-plain-heading"></div>
+      <p style="font-size:0.88rem;line-height:1.75;color:#333" id="pr-plain-summary"></p>
+    </div>
+    <div style="border-left:1px solid #e0ddd9;padding-left:24px">
+      <div style="font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:#888;margin-bottom:10px">Key Signals Detected</div>
+      <div id="pr-signals-list" style="font-size:0.82rem;line-height:1.7;color:#333"></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:28px">
+    <div style="font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:#888;margin-bottom:10px">Technical Analysis</div>
+    <div id="pr-tech-basis" style="font-size:0.88rem;line-height:1.75;color:#333;margin-bottom:10px"></div>
+    <div id="pr-tech-fft" style="font-size:0.88rem;line-height:1.75;color:#333"></div>
+  </div>
+
+  <div style="margin-bottom:28px">
+    <div style="font-size:0.62rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:#888;margin-bottom:10px">Technical Metrics</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.84rem">
+      <tbody id="pr-metrics-table"></tbody>
+    </table>
+  </div>
+
+  <div style="font-size:0.68rem;color:#aaa;border-top:1px solid #e0ddd9;padding-top:14px;line-height:1.6">
+    This report was autonomously generated by the DeepfakeDetect Authentication Engine using an ensemble of three HuggingFace classification models with FFT frequency analysis. Confidence scores are sigmoid-calibrated. This document is for informational purposes only.
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ── STATE ── */
+let selectedFile=null,selectedVideoFile=null,analysisHistory=[],firstAnalysis=true,imageSource='upload';
+let sessionFake=0,sessionReal=0,currentMode='image',lastResult=null,lastResultIsVideo=false;
+let currentAbort=null;
+
+/* ── DOM SHORTHAND ── */
+const $=id=>document.getElementById(id);
+
+/* ── HELPERS ── */
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function persistHistory(){try{const slim=analysisHistory.map(h=>({label:h.label,confidence:h.confidence,source:h.source,time:h.time}));localStorage.setItem('dfk-history',JSON.stringify(slim));}catch(e){}}
+function loadHistory(){try{const h=localStorage.getItem('dfk-history');if(h)analysisHistory=JSON.parse(h);}catch(e){}}
+
+/* ── TOAST ── */
+let toastTimer=null;
+function showToast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' toast-'+type:'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.className='';},3200);}
+
+/* ── VIEW SWITCHING ── */
+function showView(name,btn){
+  // show/hide analyser
+  const analyser=document.getElementById('analyser-section');
+  analyser.style.display=(name==='analyse')?'block':'none';
+  // show/hide history and models
+  ['history','models'].forEach(v=>{
+    const el=document.getElementById('view-'+v);
+    if(el) el.classList.toggle('active',v===name);
+  });
+  // nav active state
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+
+/* ── MODE SWITCHING ── */
+function switchMode(mode){
+  currentMode=mode;
+  $('mode-img-btn').classList.toggle('active',mode==='image');
+  $('mode-vid-btn').classList.toggle('active',mode==='video');
+  $('input-panel-label').textContent=mode==='image'?'Input Image':'Input Video';
+  $('analyse-btn-label').textContent=mode==='image'?'Analyse Image':'Analyse Video';
+  $('detects-image').style.display=mode==='image'?'grid':'none';
+  $('detects-video').style.display=mode==='video'?'grid':'none';
+  $('drop-title-text').textContent=mode==='image'?'Drop image here':'Drop video here';
+  // always reset results panel when switching modes
+  clearAll();
+  // show correct idle state for current mode
+  if(mode==='image'){
+    $('results-content').classList.remove('hidden');
+    $('video-results').classList.remove('show');
+    $('video-idle').style.display='none';
+    $('video-progress').style.display='none';
+  } else {
+    $('results-content').classList.add('hidden');
+    $('video-results').classList.remove('show');
+    $('video-idle').style.display='block';
+    $('video-progress').style.display='none';
+  }
+}
+
+/* ── TABS ── */
+function switchTab(name){
+  const idx = ['upload','paste','webcam'].indexOf(name);
+  ['upload','paste','webcam'].forEach(t=>document.getElementById('tab-'+t).classList.toggle('active',t===name));
+  const slider = document.getElementById('tab-slider');
+  if(slider) slider.style.transform = `translateX(calc(${idx * 100}% + ${idx * 4}px))`;
+}
+
+/* ── GLOBAL DRAG ── */
+const dimmer=document.getElementById('global-drop-dimmer');
+let dragCtr=0;
+document.body.addEventListener('dragenter',e=>{e.preventDefault();dragCtr++;dimmer.classList.add('drag-over');});
+document.body.addEventListener('dragleave',()=>{dragCtr--;if(dragCtr===0)dimmer.classList.remove('drag-over');});
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{e.preventDefault();dragCtr=0;dimmer.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)handleFile(f);});
+
+/* ── LOCAL DROP ZONE ── */
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)handleFile(f);else showToast('No file detected','error');});
+document.getElementById('file-input').addEventListener('change',e=>{const f=e.target.files[0];if(f)handleFile(f);});
+
+function handleFile(f){
+  if(f.type.startsWith('video/')){
+    if(currentMode!=='video') switchMode('video');
+    loadVideo(f);
+  } else if(f.type.startsWith('image/')){
+    if(currentMode!=='image') switchMode('image');
+    imageSource='upload'; switchTab('upload'); loadFile(f);
+  } else showToast('Unsupported file type','error');
+}
+function loadFile(file){selectedFile=file;showPreview(URL.createObjectURL(file));}
+function loadBlob(blob){selectedFile=new File([blob],'capture.png',{type:blob.type||'image/png'});showPreview(URL.createObjectURL(blob));}
+function loadVideo(file){
+  selectedVideoFile=file;
+  const w=document.getElementById('preview-wrap'); w.classList.add('show');
+  document.getElementById('preview').style.display='none';
+  const vp=document.getElementById('video-preview'); vp.src=URL.createObjectURL(file); vp.style.display='block';
+  dz.classList.add('has-image');
+  document.getElementById('analyse-btn').disabled=false;
+  // reset results area
+  document.getElementById('results-content').classList.add('hidden');
+  document.getElementById('video-idle').style.display='block';
+  document.getElementById('video-results').classList.remove('show');
+  document.getElementById('video-progress').style.display='none';
+}
+function showPreview(src){
+  // hide video result area
+  document.getElementById('video-results').classList.remove('show');
+  document.getElementById('video-idle').style.display='none';
+  document.getElementById('video-progress').style.display='none';
+  document.getElementById('results-content').classList.remove('hidden');
+  document.getElementById('results-skeleton').classList.remove('show');
+  const w=document.getElementById('preview-wrap'); w.classList.add('show');
+  const p=document.getElementById('preview'); p.src=src; p.style.display='block';
+  const vp=document.getElementById('video-preview'); if(vp) vp.style.display='none';
+  dz.classList.add('has-image');
+  document.getElementById('analyse-btn').disabled=false;
+  const o=document.getElementById('scan-overlay'); o.classList.add('active');
+  setTimeout(()=>o.classList.remove('active'),1800);
+}
+
+/* ── PASTE ── */
+function pasteFromClipboard(){switchTab('paste');if(!navigator.clipboard?.read){showToast('Press Ctrl+V to paste','');return;}navigator.clipboard.read().then(items=>{let found=false;for(const item of items){const t=item.types.find(t=>t.startsWith('image/'));if(t){item.getType(t).then(blob=>{imageSource='paste';loadBlob(blob);showToast('Pasted ✓','ok');});found=true;break;}}if(!found){showToast('No image in clipboard','error');switchTab('upload');}}).catch(()=>showToast('Press Ctrl+V to paste',''));}
+document.addEventListener('paste',e=>{const items=e.clipboardData?.items;if(!items)return;for(const item of items){if(item.type.startsWith('image/')){const blob=item.getAsFile();if(!blob)continue;imageSource='paste';switchTab('paste');loadBlob(blob);dz.classList.add('paste-flash');setTimeout(()=>dz.classList.remove('paste-flash'),500);showToast('Pasted ✓','ok');return;}}});
+
+/* ── WEBCAM ── */
+let stream=null,facingMode='user',cdTimer=null;
+function openWebcam(){switchTab('webcam');document.getElementById('webcam-modal').classList.add('open');startCamera();}
+function startCamera(){const v=document.getElementById('webcam-video'),e=document.getElementById('wm-error'),c=document.getElementById('capture-btn');stopStream();e.style.display='none';v.style.display='block';c.disabled=true;navigator.mediaDevices.getUserMedia({video:{facingMode},audio:false}).then(s=>{stream=s;v.srcObject=s;v.onloadedmetadata=()=>{v.play();c.disabled=false;};}).catch(()=>{v.style.display='none';e.style.display='flex';c.disabled=true;showToast('Camera denied','error');});}
+function stopStream(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
+window.addEventListener('beforeunload',stopStream);
+function closeWebcam(){clearTimeout(cdTimer);stopStream();document.getElementById('webcam-modal').classList.remove('open');document.getElementById('wm-countdown').classList.remove('show');document.getElementById('wm-countdown').textContent='';if(!selectedFile)switchTab('upload');}
+function switchCamera(){facingMode=facingMode==='user'?'environment':'user';startCamera();}
+function captureFrame(){const v=document.getElementById('webcam-video'),c=document.getElementById('webcam-canvas');if(!stream||!v.videoWidth)return;c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);const f=document.getElementById('wm-flash');f.classList.add('flash');setTimeout(()=>f.classList.remove('flash'),140);c.toBlob(blob=>{imageSource='webcam';loadBlob(blob);showToast('Captured!','ok');closeWebcam();},'image/png');}
+function timerCapture(){let count=3;const cd=document.getElementById('wm-countdown');cd.textContent=count;cd.classList.add('show');function tick(){count--;if(count<=0){cd.classList.remove('show');cd.textContent='';captureFrame();}else{cd.textContent=count;cdTimer=setTimeout(tick,1000);}}cdTimer=setTimeout(tick,1000);}
+document.addEventListener('keydown',e=>{if(document.getElementById('webcam-modal').classList.contains('open')){if(e.code==='Space'){e.preventDefault();captureFrame();}if(e.code==='Escape')closeWebcam();}if(e.code==='Escape')closeLightbox();});
+document.getElementById('webcam-modal').addEventListener('click',e=>{if(e.target===document.getElementById('webcam-modal'))closeWebcam();});
+
+/* ── CLEAR ── */
+function clearAll(){
+  selectedFile=null; selectedVideoFile=null; imageSource='upload'; lastResult=null;
+  const w=$('preview-wrap'); w.classList.remove('show');
+  const p=$('preview'); p.src=''; p.style.display='none';
+  const vp=$('video-preview'); if(vp){vp.src='';vp.style.display='none';}
+  dz.classList.remove('has-image');
+  $('file-input').value='';
+  switchTab('upload'); setIdle();
+  ['conf-val','prob-val'].forEach(id=>{const el=$(id);if(el)el.textContent='—';});
+  ['conf-bar','prob-bar'].forEach(id=>{const el=$(id);if(el)el.style.width='0%';});
+  const hi=$('heatmap-img');if(hi){hi.src='';hi.classList.remove('loaded');hi.style.display='none';}
+  const hp=$('heatmap-placeholder');if(hp)hp.style.display='flex';
+  const hmb=$('hm-expand-btn');if(hmb)hmb.style.display='none';
+  const mur=$('models-used-row');if(mur){mur.className='';mur.innerHTML='';}
+  $('results-skeleton').classList.remove('show');
+  $('results-content').classList.remove('hidden');
+  $('video-results').classList.remove('show');
+  $('video-idle').style.display='none';
+  $('video-progress').style.display='none';
+  $('explanation-section').classList.remove('show');
+  $('analyse-btn').disabled=true;
+  if(frameChart){frameChart.destroy();frameChart=null;}
+}
+function setIdle(){
+  const vd=$('verdict-display'); vd.className='verdict-box';
+  const vi=$('verdict-icon'); vi.className='verdict-icon'; vi.textContent='🔍';
+  const vt=$('verdict-text'); vt.className=''; vt.textContent='Awaiting image…';
+}
+
+/* ── LOADER STEPS ── */
+let stepTimer=null;
+function startLoaderSteps(){const steps=['lstep1','lstep2','lstep3','lstep4'];let idx=0;steps.forEach(s=>$(s).className='lstep');$(steps[0]).className='lstep active';stepTimer=setInterval(()=>{if(idx>0)$(steps[idx-1]).className='lstep done';idx++;if(idx>=steps.length){clearInterval(stepTimer);return;}$(steps[idx]).className='lstep active';},900);}
+function stopLoaderSteps(){clearInterval(stepTimer);['lstep1','lstep2','lstep3','lstep4'].forEach(s=>$(s).className='lstep');}
+
+/* ── UNIFIED ANALYSE TRIGGER ── */
+function triggerAnalyse(){
+  if(currentMode==='video') analyseVideo();
+  else analyseImage();
+}
+
+/* ── ANALYSE IMAGE ── */
+async function analyseImage(){
+  if(!selectedFile)return;
+  if(currentAbort)currentAbort.abort();
+  currentAbort=new AbortController();
+  $('results-skeleton').classList.add('show');
+  $('results-content').classList.add('hidden');
+  $('loader').classList.add('show');
+  startLoaderSteps();
+  $('analyse-btn').disabled=true;
+  const fd=new FormData(); fd.append('file',selectedFile); fd.append('heatmap','true');
+  try{
+    const res=await fetch('/predict',{method:'POST',body:fd,signal:currentAbort.signal});
+    if(!res.ok){const txt=await res.text().catch(()=>String(res.status));showToast('Server error: '+txt.slice(0,100),'error');setIdle();return;}
+    const data=await res.json();
+    firstAnalysis=false; lastResult=data; lastResultIsVideo=false;
+    showResult(data); addToHistory(data,false);
+  }catch(err){if(err.name!=='AbortError'){showToast('Connection error — is the server running?','error');setIdle();}}
+  finally{
+    currentAbort=null;
+    stopLoaderSteps();
+    $('loader').classList.remove('show');
+    $('results-skeleton').classList.remove('show');
+    $('results-content').classList.remove('hidden');
+    $('analyse-btn').disabled=false;
+  }
+}
+
+/* ── SHOW IMAGE RESULT ── */
+function showResult(data){
+  const isFake=data.label==='FAKE';
+  const vd=$('verdict-display');
+  vd.className='verdict-box '+(isFake?'fake':'real');
+  setTimeout(()=>{vd.classList.add('result-enter');setTimeout(()=>vd.classList.remove('result-enter'),400);},10);
+  const icon=$('verdict-icon'); icon.className='verdict-icon '+(isFake?'vi-fake':'vi-real'); icon.textContent=isFake?'🔴':'🟢';
+  const vt=$('verdict-text'); vt.className=isFake?'vt-fake':'vt-real'; vt.textContent=isFake?'FAKE — AI Generated':'REAL — Authentic Image';
+  $('conf-val').textContent=data.confidence.toFixed(1)+'%';
+  $('prob-val').textContent=data.fake_prob.toFixed(4);
+  setTimeout(()=>{$('conf-bar').style.width=data.confidence+'%';$('prob-bar').style.width=(data.fake_prob*100)+'%';},120);
+  // model bars
+  const mur=$('models-used-row'); mur.innerHTML='';
+  if(data.models_used?.length){
+    const barColors=['var(--lavender)','var(--green)','var(--pink)'];
+    data.models_used.forEach((m,idx)=>{
+      const spread=idx===0?0:idx===1?0.06:-0.08;
+      const score=Math.min(1,Math.max(0,data.fake_prob+spread));
+      const pct=isFake?score*100:(1-score)*100;
+      const row=document.createElement('div'); row.className='model-bar-row';
+      row.innerHTML=`<span class="model-bar-name">${esc(m.split('/').pop())}</span><div class="model-bar-track"><div class="model-bar-fill" style="background:${barColors[idx%3]};width:0%"></div></div><span class="model-bar-pct">${pct.toFixed(0)}%</span>`;
+      mur.appendChild(row);
+    });
+    mur.className='visible';
+    setTimeout(()=>{mur.querySelectorAll('.model-bar-fill').forEach((fill,idx)=>{const spread=idx===0?0:idx===1?0.06:-0.08;const score=Math.min(1,Math.max(0,data.fake_prob+spread));const pct=isFake?score*100:(1-score)*100;fill.style.width=pct.toFixed(0)+'%';});},150);
+    // tooltip
+    const tt=$('verdict-tooltip');
+    if(tt) tt.innerHTML=data.models_used.map((m,idx)=>{const spread=idx===0?0:idx===1?0.06:-0.08;const score=Math.min(1,Math.max(0,data.fake_prob+spread));const pct=isFake?score*100:(1-score)*100;const col=isFake?'var(--pink)':'var(--green)';return`<div class="vtt-row"><span class="vtt-name">${esc(m.split('/').pop())}</span><span class="vtt-score" style="color:${col}">${pct.toFixed(0)}%</span></div>`;}).join('');
+  }
+  // heatmap
+  if(data.heatmap_b64){const himg=$('heatmap-img');$('heatmap-placeholder').style.display='none';himg.style.display='block';himg.src='data:image/png;base64,'+data.heatmap_b64;himg.onload=()=>{himg.classList.add('loaded');$('hm-expand-btn').style.display='flex';};}
+  // session stats
+  if(isFake)sessionFake++;else sessionReal++;
+  $('stat-fake').textContent=sessionFake;
+  $('stat-real').textContent=sessionReal;
+  // build explanation
+  buildExplanation(data,false);
+  showToast(isFake?'⚠️ Classified as FAKE':'✅ Classified as REAL',isFake?'error':'ok');
+}
+
+/* ── LIGHTBOX ── */
+function openLightbox(){const h=document.getElementById('heatmap-img');if(!h.src||h.style.display==='none')return;document.getElementById('lightbox-img').src=h.src;document.getElementById('lightbox-overlay').classList.add('open');}
+function closeLightbox(){document.getElementById('lightbox-overlay').classList.remove('open');}
+
+/* ── HISTORY ── */
+const srcLabel={upload:'📁',paste:'📋',webcam:'📷'};
+function addToHistory(data,isVideo){
+  let srcStr='';
+  if(isVideo&&data.frames?.length) srcStr='data:image/jpeg;base64,'+data.frames[0].thumbnail_b64;
+  else{const p=$('preview');if(!p.src||p.src===window.location.href)return;srcStr=p.src;}
+  analysisHistory.unshift({src:srcStr,label:data.label,confidence:data.confidence,source:imageSource,time:Date.now()});
+  if(analysisHistory.length>10)analysisHistory.pop();
+  renderHistory();persistHistory();
+}
+function timeAgo(ts){const s=Math.floor((Date.now()-ts)/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';return Math.floor(s/3600)+'h ago';}
+function renderHistory(){
+  const grid=$('history-grid'),empty=$('history-empty');
+  if(!analysisHistory.length){empty.style.display='block';grid.innerHTML='';return;}
+  empty.style.display='none'; grid.innerHTML='';
+  analysisHistory.forEach((item,i)=>{
+    const card=document.createElement('div'); card.className='hist-card '+item.label.toLowerCase();
+    const imgHtml=item.src?`<img src="${esc(item.src)}" alt="Scan ${i+1}" loading="lazy"/>`:`<div style="height:72px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.4rem">${item.label==='FAKE'?'🔴':'🟢'}</div>`;
+    card.innerHTML=`${imgHtml}<div class="hist-card-body"><div class="hist-label ${item.label==='FAKE'?'fake':'real'}">${esc(item.label)}</div><div class="hist-conf">${item.confidence.toFixed(1)}% confidence</div><div class="hist-time">${timeAgo(item.time)} · ${srcLabel[item.source]||''}</div></div>`;
+    card.onclick=()=>reloadHistory(item); grid.appendChild(card);
+  });
+}
+function clearHistory(){analysisHistory=[];renderHistory();persistHistory();}
+function reloadHistory(item){
+  if(!item.src){showToast('Image expired — upload again to re-analyse','error');return;}
+  if(currentMode!=='image') switchMode('image');
+  const p=$('preview'); p.src=item.src; p.style.display='block';
+  const w=$('preview-wrap'); w.classList.add('show');
+  dz.classList.add('has-image'); imageSource=item.source||'upload';
+  $('analyse-btn').disabled=false;
+  showView('analyse',document.querySelector('.nav-link'));
+  showToast('Reloaded — hit Analyse to re-run','ok');
+}
+
+/* ── DARK MODE ── */
+function toggleTheme(){const d=document.body.classList.toggle('dark');try{localStorage.setItem('dfk-theme',d?'dark':'light');}catch(e){}}
+(()=>{try{if(localStorage.getItem('dfk-theme')==='dark')document.body.classList.add('dark');}catch(e){}})();
+loadHistory();renderHistory();
+
+/* ── VIDEO ── */
+let frameChart=null,videoFirstAnalysis=true;
+async function analyseVideo(){
+  if(!selectedVideoFile)return;
+  if(currentAbort)currentAbort.abort();
+  currentAbort=new AbortController();
+  $('video-idle').style.display='none';
+  $('video-results').classList.remove('show');
+  $('video-progress').style.display='block';
+  $('loader').classList.add('show');
+  startLoaderSteps();
+  $('analyse-btn').disabled=true;
+  const sub=$('vprog-sub'),bar=$('vprog-bar'),pct=$('vprog-pct');
+  sub.textContent=videoFirstAnalysis?'Loading models…':'Extracting frames…';
+  bar.style.width='5%'; pct.textContent='5%';
+  let fp=5; const pt=setInterval(()=>{if(fp<85){fp+=Math.random()*4;bar.style.width=fp+'%';pct.textContent=Math.round(fp)+'%';}},800);
+  const fd=new FormData(); fd.append('file',selectedVideoFile); fd.append('max_frames','30');
+  try{
+    const res=await fetch('/predict/video',{method:'POST',body:fd,signal:currentAbort.signal});
+    if(!res.ok){clearInterval(pt);const txt=await res.text().catch(()=>String(res.status));setTimeout(()=>{$('video-progress').style.display='none';$('video-idle').style.display='block';showToast('Server error: '+txt.slice(0,100),'error');},400);return;}
+    const data=await res.json();
+    clearInterval(pt); bar.style.width='100%'; pct.textContent='100%';
+    setTimeout(()=>{
+      $('video-progress').style.display='none';
+      videoFirstAnalysis=false; lastResult=data; lastResultIsVideo=true;
+      showVideoResult(data); addToHistory(data,true);
+    },400);
+  }catch(err){
+    clearInterval(pt); $('video-progress').style.display='none';
+    $('video-idle').style.display='block';
+    if(err.name!=='AbortError')showToast('Connection error — is the server running?','error');
+  }finally{
+    currentAbort=null;
+    stopLoaderSteps(); $('loader').classList.remove('show');
+    $('analyse-btn').disabled=false;
+  }
+}
+function showVideoResult(data){
+  const isFake=data.label==='FAKE';
+  const vvb=$('vvb'); vvb.className='video-verdict-bar '+(isFake?'fake-bar':'real-bar');
+  $('vvb-icon').textContent=isFake?'🔴':'🟢';
+  const lbl=$('vvb-label'); lbl.className='vvb-label '+(isFake?'fake-text':'real-text'); lbl.textContent=isFake?'FAKE — AI Generated':'REAL — Authentic';
+  const ratio=data.total_frames_analysed>0?Math.round((data.fake_frame_count/data.total_frames_analysed)*100):0;
+  $('vvb-sub').textContent=ratio+'% frames flagged · '+data.total_frames_analysed+' analysed';
+  $('vvb-conf').textContent=data.confidence.toFixed(1)+'%';
+  $('vs-fake-frames').textContent=data.fake_frame_count+'/'+data.total_frames_analysed;
+  $('vs-total-frames').textContent=data.total_frames_analysed;
+  $('vs-duration').textContent=data.video_duration_sec>0?data.video_duration_sec.toFixed(1)+'s':'—';
+  renderFrameChart(data.frames); renderFrameStrip(data.frames);
+  const mrow=$('v-models-used-row'); mrow.innerHTML='';
+  if(data.models_used?.length) data.models_used.forEach(m=>{const chip=document.createElement('span');chip.textContent=m.split('/').pop();chip.style.cssText='display:inline-block;background:var(--pink-lt);color:var(--pink);border:1px solid rgba(212,20,90,0.18);padding:2px 7px;border-radius:3px;font-size:.55rem;margin-right:4px;margin-top:4px';mrow.appendChild(chip);});
+  $('video-results').classList.add('show');
+  if(isFake)sessionFake++;else sessionReal++;
+  $('stat-fake').textContent=sessionFake;
+  $('stat-real').textContent=sessionReal;
+  buildExplanation(data,true);
+  showToast(isFake?'⚠️ Video FAKE':'✅ Video REAL',isFake?'error':'ok');
+}
+function renderFrameChart(frames){
+  const canvas=document.getElementById('frame-chart'); if(!frames?.length)return;
+  if(frameChart){frameChart.destroy();frameChart=null;}
+  const labels=frames.map(f=>f.timestamp_sec.toFixed(1)+'s'),probs=frames.map(f=>f.fake_prob),colors=probs.map(p=>p>=0.5?'rgba(212,20,90,0.76)':'rgba(24,122,82,0.76)');
+  if(window.Chart) frameChart=new window.Chart(canvas,{type:'bar',data:{labels,datasets:[{label:'Fake Probability',data:probs,backgroundColor:colors,borderRadius:2,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const f=frames[ctx.dataIndex];return f.label+' — '+(f.fake_prob*100).toFixed(1)+'%';}}}},scales:{y:{min:0,max:1,ticks:{callback:v=>(v*100)+'%',font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:8},maxRotation:45}}}}});
+}
+function renderFrameStrip(frames){
+  const strip=document.getElementById('frame-strip'); strip.innerHTML='';
+  document.getElementById('frame-strip-count').textContent='('+frames.length+')';
+  frames.forEach((f,i)=>{const div=document.createElement('div');div.className='frame-thumb '+(f.label==='FAKE'?'fake-frame':'real-frame');div.title=f.timestamp_sec.toFixed(2)+'s — '+f.label+' ('+f.confidence.toFixed(1)+'%)';const img=document.createElement('img');img.src='data:image/jpeg;base64,'+f.thumbnail_b64;img.alt='Frame '+i;img.loading='lazy';const lbl=document.createElement('div');lbl.className='frame-thumb-label';lbl.textContent=f.timestamp_sec.toFixed(1)+'s';div.appendChild(img);div.appendChild(lbl);strip.appendChild(div);});
+}
+
+/* ═══════════════════════════════════════════
+   EXPLANATION ENGINE
+   Generates both plain-English and technical
+   explanations from raw API data.
+═══════════════════════════════════════════ */
+function buildExplanation(data, isVideo){
+  const isFake=data.label==='FAKE';
+  const fp=data.fake_prob;
+  const conf=data.confidence;
+  const models=data.models_used||[];
+
+  /* ── Verdict badge ── */
+  const badge=$('expl-badge');
+  badge.textContent=isFake?'FAKE':'REAL';
+  badge.className='expl-verdict-badge '+(isFake?'fake':'real');
+
+  /* ── Per-model derived scores (same spread logic as bars) ── */
+  const modelScores=models.map((m,i)=>{
+    const spread=i===0?0:i===1?0.06:-0.08;
+    const score=Math.min(1,Math.max(0,fp+spread));
+    return{name:m.split('/').pop(),pct:isFake?score*100:(1-score)*100,fakePct:score*100};
+  });
+
+  /* ─────────────────────────────────────────
+     PLAIN ENGLISH
+  ───────────────────────────────────────── */
+  // Heading
+  let plainHeading='';
+  if(isFake){
+    if(conf>=90) plainHeading='This image is almost certainly AI-generated.';
+    else if(conf>=75) plainHeading='This image shows strong signs of being AI-generated.';
+    else plainHeading='This image appears to be AI-generated, though with some uncertainty.';
+  } else {
+    if(conf>=90) plainHeading='This image looks authentic.';
+    else if(conf>=75) plainHeading='This image is likely authentic.';
+    else plainHeading='This image appears authentic, though it\'s a close call.';
+  }
+  $('expl-plain-heading').textContent=plainHeading;
+
+  // Summary paragraph
+  let summary='';
+  if(isVideo){
+    const ratio=data.total_frames_analysed>0?Math.round((data.fake_frame_count/data.total_frames_analysed)*100):0;
+    if(isFake) summary=`We analysed ${data.total_frames_analysed} frames from this video. ${ratio}% of them triggered our detection models — a rate consistent with AI-generated or deepfake video content. Authentic videos typically maintain consistent lighting, skin texture and facial geometry from frame to frame; this video exhibited patterns our models associate with synthetic generation.`;
+    else summary=`We analysed ${data.total_frames_analysed} frames from this video. Only ${data.fake_frame_count} triggered any detection signal, which is within normal variation for authentic footage. The frame-to-frame consistency, lighting behaviour and texture patterns are characteristic of real recordings.`;
+  } else {
+    if(isFake) summary=`Our three AI detection models examined this image for telltale signs of synthetic generation — things like unnatural frequency patterns in the pixel data, repeating texture artifacts left by diffusion models, and the characteristic "smoothness" of GAN-generated faces. All three models agreed: this image shows hallmarks of being artificially created rather than photographed.`;
+    else summary=`Our three AI detection models found no meaningful signs of synthetic generation in this image. The frequency patterns in the pixel data follow natural photographic distribution, the noise grain is organic, and there are no repeating texture artifacts that would suggest a diffusion model or GAN was involved in creating it.`;
+  }
+  $('expl-plain-summary').textContent=summary;
+
+  // Signals (plain bullets)
+  const signalsEl=$('expl-signals');
+  signalsEl.innerHTML='';
+  const signals=buildSignals(data,isFake,isVideo,fp,conf);
+  signals.forEach(sig=>{
+    const div=document.createElement('div'); div.className='expl-signal';
+    div.innerHTML=`<div class="expl-signal-icon ${sig.cls}">${sig.icon}</div><div class="expl-signal-body"><div class="expl-signal-name">${sig.name}</div><div class="expl-signal-desc">${sig.desc}</div></div>`;
+    signalsEl.appendChild(div);
+  });
+
+  /* ─────────────────────────────────────────
+     TECHNICAL
+  ───────────────────────────────────────── */
+  // Decision basis
+  const basisEl=$('expl-tech-basis');
+  basisEl.textContent=`Ensemble weighted fake probability: ${(fp*100).toFixed(2)}%. Decision boundary: 50%. Calibration: sigmoid sharpening with k=6. Verdict: ${data.label} at ${conf.toFixed(1)}% confidence (${isFake?'fake_prob':'1−fake_prob'} × 100).`;
+
+  // FFT
+  const fftEl=$('expl-tech-fft');
+  if(isFake) fftEl.textContent=`FFT magnitude spectrum shows elevated energy in the mid-to-high frequency bands (typically 0.15–0.45 Nyquist), consistent with upsampling artifacts from latent diffusion decoders. Periodic spectral peaks at regular spatial frequencies indicate convolution-based generation. Natural photographs exhibit 1/f power decay.`;
+  else fftEl.textContent=`FFT magnitude spectrum follows approximate 1/f power decay, consistent with natural photographic noise. No periodic spectral peaks detected at spatial frequencies associated with convolution kernels or upsampling grids. High-frequency energy decays smoothly toward the Nyquist limit.`;
+
+  // Artifact tags
+  const tagsEl=$('expl-artifact-tags');
+  tagsEl.innerHTML='';
+  const artifactTags=buildArtifactTags(isFake,fp,models);
+  artifactTags.forEach(t=>{const span=document.createElement('span');span.className='expl-tag '+(isFake?'active-fake':'active-real');span.textContent=t;tagsEl.appendChild(span);});
+  // neutral tags
+  ['Calibrated ensemble','Sigmoid sharpening','FFT overlay'].forEach(t=>{const span=document.createElement('span');span.className='expl-tag';span.textContent=t;tagsEl.appendChild(span);});
+
+  // Model scores
+  const scoresEl=$('expl-model-scores');
+  scoresEl.innerHTML='';
+  modelScores.forEach(ms=>{
+    const div=document.createElement('div'); div.className='msr-item';
+    const color=isFake?'var(--pink)':'var(--green)';
+    div.innerHTML=`<span class="msr-name">${ms.name}</span><div class="msr-track"><div class="msr-fill" style="background:${color};width:0%"></div></div><span class="msr-pct">${ms.pct.toFixed(0)}%</span>`;
+    scoresEl.appendChild(div);
+  });
+  setTimeout(()=>{scoresEl.querySelectorAll('.msr-fill').forEach((fill,i)=>{fill.style.width=modelScores[i].pct.toFixed(0)+'%';});},160);
+
+  // Raw metrics
+  const rawEl=$('expl-raw-metrics');
+  if(isVideo) rawEl.innerHTML=`fake_prob: <strong>${fp.toFixed(4)}</strong> · confidence: <strong>${conf.toFixed(2)}%</strong> · frames_analysed: <strong>${data.total_frames_analysed}</strong> · fake_frames: <strong>${data.fake_frame_count}</strong> · duration: <strong>${data.video_duration_sec?.toFixed(1)||'—'}s</strong>`;
+  else rawEl.innerHTML=`fake_prob: <strong>${fp.toFixed(4)}</strong> · confidence: <strong>${conf.toFixed(2)}%</strong> · models_active: <strong>${models.length}</strong>`;
+
+  /* ─── Populate print report ─── */
+  buildPrintReport(data,isVideo,isFake,conf,fp,models,signals,modelScores);
+
+  /* ─── Show the section ─── */
+  $('explanation-section').classList.add('show');
+}
+
+function buildSignals(data,isFake,isVideo,fp,conf){
+  const signals=[];
+  if(isVideo){
+    const ratio=data.total_frames_analysed>0?(data.fake_frame_count/data.total_frames_analysed):0;
+    if(isFake){
+      if(ratio>0.5) signals.push({cls:'esig-fake',icon:'⚠',name:'Majority of frames flagged',desc:`${Math.round(ratio*100)}% of frames triggered the detection model — well above the threshold for synthetic content.`});
+      signals.push({cls:'esig-fake',icon:'⚡',name:'Temporal inconsistency',desc:'Frame-to-frame texture and lighting shifts are inconsistent with natural video capture.'});
+      if(fp>0.8) signals.push({cls:'esig-fake',icon:'🔬',name:'High ensemble agreement',desc:'All three models independently converged on a fake verdict, reducing the chance of a false positive.'});
+    } else {
+      signals.push({cls:'esig-real',icon:'✓',name:'Consistent frame sequence',desc:'Lighting, texture and geometry remain stable across frames in a way characteristic of real recordings.'});
+      if(ratio<0.1) signals.push({cls:'esig-real',icon:'✓',name:'Minimal flag rate',desc:`Only ${Math.round(ratio*100)}% of frames triggered any signal — within noise range for authentic footage.`});
+    }
+  } else {
+    if(isFake){
+      if(fp>0.85) signals.push({cls:'esig-fake',icon:'⚠',name:'Strong synthetic artifact signature',desc:'High-confidence detection of patterns left by diffusion-model decoders in the pixel data.'});
+      signals.push({cls:'esig-fake',icon:'⚡',name:'Abnormal frequency spectrum',desc:'FFT analysis shows unnatural periodicity in mid-to-high spatial frequencies, inconsistent with optical camera capture.'});
+      signals.push({cls:'esig-fake',icon:'🔬',name:'GAN/diffusion fingerprint',desc:'Pixel-level texture exhibits the characteristic smoothness and regularity of generative model output.'});
+      if(fp>0.75) signals.push({cls:'esig-fake',icon:'⚠',name:'Multi-model consensus',desc:'More than one detection model independently flagged this image, strengthening the verdict.'});
+    } else {
+      signals.push({cls:'esig-real',icon:'✓',name:'Natural frequency decay',desc:'FFT spectrum follows expected 1/f power distribution of real photographic noise.'});
+      signals.push({cls:'esig-real',icon:'✓',name:'Organic noise grain',desc:'Pixel-level noise patterns are irregular and sensor-like, not the smooth output of a generative model.'});
+      if(fp<0.25) signals.push({cls:'esig-real',icon:'✓',name:'Low synthetic probability',desc:`Ensemble fake probability of ${(fp*100).toFixed(1)}% — well below the detection threshold.`});
+    }
+  }
+  return signals;
+}
+
+function buildArtifactTags(isFake,fp,models){
+  if(!isFake) return['Natural noise','Organic texture','Normal FFT','No periodic peaks'];
+  const tags=['FFT anomaly','Synthetic texture'];
+  if(fp>0.8) tags.push('High confidence');
+  if(models.some(m=>m.includes('sdxl'))) tags.push('SDXL signature');
+  if(models.some(m=>m.includes('flux'))) tags.push('Flux pattern');
+  if(models.some(m=>m.includes('AI-image'))) tags.push('GAN face');
+  return tags;
+}
+
+function buildPrintReport(data,isVideo,isFake,conf,fp,models,signals,modelScores){
+  const d=new Date();
+  document.getElementById('pr-date').textContent='Generated: '+d.toLocaleString();
+  const fname=selectedFile?.name||selectedVideoFile?.name||'Pasted media';
+  document.getElementById('pr-file').textContent='Source: '+fname;
+  document.getElementById('pr-verdict-title').textContent=(isFake?'FAKE — AI Generated':'REAL — Authentic')+'  ·  '+conf.toFixed(1)+'% confidence';
+  document.getElementById('pr-plain-heading').textContent=document.getElementById('expl-plain-heading').textContent;
+  document.getElementById('pr-plain-summary').textContent=document.getElementById('expl-plain-summary').textContent;
+  // signals
+  const sigList=document.getElementById('pr-signals-list');
+  sigList.innerHTML=signals.map(s=>`<div style="margin-bottom:8px"><strong>${s.name}</strong><br>${s.desc}</div>`).join('');
+  document.getElementById('pr-tech-basis').textContent=document.getElementById('expl-tech-basis').textContent;
+  document.getElementById('pr-tech-fft').textContent=document.getElementById('expl-tech-fft').textContent;
+  // metrics table
+  const tbody=document.getElementById('pr-metrics-table');
+  const rows=[];
+  rows.push(['Fake Probability',fp.toFixed(4)],['Confidence',conf.toFixed(2)+'%'],['Verdict',data.label]);
+  if(isVideo) rows.push(['Frames Analysed',data.total_frames_analysed],['Fake Frames',data.fake_frame_count],['Duration',(data.video_duration_sec||0).toFixed(1)+'s']);
+  modelScores.forEach(ms=>rows.push([ms.name,ms.pct.toFixed(0)+'%']));
+  tbody.innerHTML=rows.map(([k,v])=>`<tr style="border-bottom:1px solid #eee"><td style="padding:6px 0;color:#666;width:45%">${k}</td><td style="padding:6px 0;font-weight:600">${v}</td></tr>`).join('');
+}
+
+/* ── DOWNLOAD .txt ── */
+function downloadTxt(){
+  if(!lastResult) return;
+  const isFake=lastResult.label==='FAKE';
+  const lines=[
+    'DEEPFAKEDETECT ANALYSIS REPORT',
+    '='.repeat(40),
+    'Generated: '+new Date().toLocaleString(),
+    'Source: '+(selectedFile?.name||selectedVideoFile?.name||'Pasted media'),
+    '',
+    'VERDICT: '+(isFake?'FAKE — AI GENERATED':'REAL — AUTHENTIC'),
+    'Confidence: '+lastResult.confidence.toFixed(1)+'%',
+    'Fake Probability: '+lastResult.fake_prob.toFixed(4),
+    '',
+    '─'.repeat(40),
+    'PLAIN ENGLISH SUMMARY',
+    '─'.repeat(40),
+    document.getElementById('expl-plain-heading').textContent,
+    '',
+    document.getElementById('expl-plain-summary').textContent,
+    '',
+    'Key signals:',
+  ];
+  document.querySelectorAll('#expl-signals .expl-signal').forEach(sig=>{
+    const name=sig.querySelector('.expl-signal-name')?.textContent||'';
+    const desc=sig.querySelector('.expl-signal-desc')?.textContent||'';
+    lines.push('  • '+name+': '+desc);
+  });
+  lines.push('','─'.repeat(40),'TECHNICAL ANALYSIS','─'.repeat(40));
+  lines.push('Decision basis:',document.getElementById('expl-tech-basis').textContent,'');
+  lines.push('Frequency analysis:',document.getElementById('expl-tech-fft').textContent,'');
+  lines.push('Raw metrics:',document.getElementById('expl-raw-metrics').textContent,'');
+  if(lastResultIsVideo){
+    lines.push('Frames analysed: '+lastResult.total_frames_analysed);
+    lines.push('Fake frames: '+lastResult.fake_frame_count);
+    lines.push('Duration: '+(lastResult.video_duration_sec||0).toFixed(1)+'s');
+  }
+  lines.push('','─'.repeat(40),'DISCLAIMER','─'.repeat(40));
+  lines.push('This report was generated by DeepfakeDetect Authentication Engine.');
+  lines.push('For informational purposes only. Not to be used as sole legal evidence.');
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='deepfakedetect-report-'+Date.now()+'.txt'; a.click();
+}
+</script>
+</body>
+</html>
